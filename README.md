@@ -84,7 +84,7 @@ Configure your streaming software (OBS, FFmpeg, etc.) with:
 ### For Streamers (Input)
 
 ```
-rtmp://localhost:1935/live/YOUR_STREAM_KEY
+rtmp://localhost:${RTMP_HOST_PORT:-1935}/live/YOUR_STREAM_KEY
 ```
 
 ### For Viewers (Output)
@@ -97,7 +97,7 @@ http://localhost:8081/hls/YOUR_STREAM_KEY.m3u8
 http://localhost:8081/dash/YOUR_STREAM_KEY.mpd
 
 # Direct RTMP (for restreaming)
-rtmp://localhost:1935/live/YOUR_STREAM_KEY
+rtmp://localhost:${RTMP_HOST_PORT:-1935}/live/YOUR_STREAM_KEY
 ```
 
 ## API Endpoints

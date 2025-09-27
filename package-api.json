@@ -8,7 +8,7 @@
     "cors": "^2.8.5"
   },
   "scripts": {
-    "start": "node api-server.js"
+    "start": "bun api-server.js"
   },
   "engines": {
     "node": ">=18.0.0"

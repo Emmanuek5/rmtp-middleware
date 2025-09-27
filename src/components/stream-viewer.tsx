@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Users, Clock, MapPin } from "lucide-react";
+import Hls from "hls.js";
 
 interface StreamInfo {
   name: string;
@@ -97,13 +98,7 @@ export function StreamViewer({ streams }: StreamViewerProps) {
                   <div className="bg-muted p-4">
                     <h4 className="font-medium mb-2">Stream Preview</h4>
                     <div className="aspect-video bg-black rounded flex items-center justify-center text-white">
-                      <div className="text-center">
-                        <Play className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm">Live stream preview</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          HLS: /hls/{stream.name}.m3u8
-                        </p>
-                      </div>
+                      <VideoPlayer streamName={stream.name} />
                     </div>
                   </div>
                   <div className="p-4 space-y-2">
@@ -126,6 +121,40 @@ export function StreamViewer({ streams }: StreamViewerProps) {
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
+
+function VideoPlayer({ streamName }: { streamName: string }) {
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const video = document.getElementById(
+      `video-${streamName}`
+    ) as HTMLVideoElement | null;
+    if (!video) return;
+    const src = `/hls/${streamName}.m3u8`;
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src;
+      video.play().catch(() => {});
+    } else if (Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, () => setError("Stream not available yet"));
+      return () => hls.destroy();
+    } else {
+      setError("HLS not supported by this browser");
+    }
+  }, [streamName]);
+
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <video id={`video-${streamName}`} controls className="w-full h-full" />
+      {error && (
+        <div className="absolute text-xs text-gray-400 px-2 py-1 bg-black/60 rounded">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

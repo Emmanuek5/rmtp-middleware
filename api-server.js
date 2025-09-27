@@ -21,6 +21,7 @@ let streamStats = {};
 const DESTINATIONS_FILE = "/app/config/destinations.json";
 const NGINX_CONF_TEMPLATE = "/etc/nginx/nginx.conf.template";
 const NGINX_CONF = "/etc/nginx/nginx.conf";
+const NGINX_ACCESS_LOG = "/var/log/nginx/access.log";
 
 // Ensure config directory exists
 const configDir = path.dirname(DESTINATIONS_FILE);
@@ -48,6 +49,83 @@ function saveDestinations() {
   } catch (error) {
     console.error("Error saving destinations:", error);
   }
+}
+
+// Parse nginx access log time like: 27/Sep/2025:21:37:30 +0000
+function parseNginxTime(dateStr) {
+  try {
+    const match = dateStr.match(
+      /(\d{2})\/(\w{3})\/(\d{4}):(\d{2}):(\d{2}):(\d{2})\s+([+-]\d{4})/
+    );
+    if (!match) return null;
+    const [, dd, mon, yyyy, hh, mm, ss, tz] = match;
+    const months = {
+      Jan: 0,
+      Feb: 1,
+      Mar: 2,
+      Apr: 3,
+      May: 4,
+      Jun: 5,
+      Jul: 6,
+      Aug: 7,
+      Sep: 8,
+      Oct: 9,
+      Nov: 10,
+      Dec: 11,
+    };
+    const offsetSign = tz[0] === "-" ? -1 : 1;
+    const offsetHours = parseInt(tz.slice(1, 3), 10);
+    const offsetMins = parseInt(tz.slice(3, 5), 10);
+    const utc = Date.UTC(
+      parseInt(yyyy, 10),
+      months[mon],
+      parseInt(dd, 10),
+      parseInt(hh, 10),
+      parseInt(mm, 10),
+      parseInt(ss, 10)
+    );
+    const offsetMs = offsetSign * (offsetHours * 60 + offsetMins) * 60 * 1000;
+    return new Date(utc - offsetMs);
+  } catch {
+    return null;
+  }
+}
+
+// Estimate HLS viewers by counting distinct client IPs requesting a stream's HLS
+function getHlsViewerCounts(windowSeconds = 20) {
+  const results = {};
+  try {
+    if (!fs.existsSync(NGINX_ACCESS_LOG)) return results;
+    const content = fs.readFileSync(NGINX_ACCESS_LOG, "utf8");
+    const lines = content.split(/\r?\n/).slice(-5000); // tail recent lines
+    const now = Date.now();
+    for (const line of lines) {
+      // combined log contains: ip - - [date] "GET /hls/<name>..." status bytes ...
+      const m = line.match(
+        /^(\S+)\s+\S+\s+\S+\s+\[([^\]]+)\]\s+"\S+\s+(\S+)\s+HTTP\/[0-9.]+"\s+(\d{3})/
+      );
+      if (!m) continue;
+      const ip = m[1];
+      const timeStr = m[2];
+      const path = m[3];
+      const status = parseInt(m[4], 10);
+      if (status >= 400) continue;
+      const dt = parseNginxTime(timeStr);
+      if (!dt) continue;
+      if (now - dt.getTime() > windowSeconds * 1000) continue;
+      const hls = path.match(/^\/hls\/(.+?)\.(m3u8|ts)$/);
+      if (!hls) continue;
+      const streamName = hls[1];
+      if (!results[streamName]) results[streamName] = new Set();
+      results[streamName].add(ip);
+    }
+  } catch (err) {
+    console.error("Error parsing HLS viewers:", err);
+  }
+  // convert sets to counts
+  const counts = {};
+  for (const [k, set] of Object.entries(results)) counts[k] = set.size;
+  return counts;
 }
 
 // Update nginx configuration with current destinations
@@ -159,7 +237,12 @@ app.delete("/api/destinations/:id", (req, res) => {
 
 // Get active streams
 app.get("/api/streams", (req, res) => {
-  res.json(activeStreams);
+  const viewerCounts = getHlsViewerCounts(30);
+  const enriched = activeStreams.map((s) => ({
+    ...s,
+    viewers: viewerCounts[s.name] ?? s.viewers ?? 0,
+  }));
+  res.json(enriched);
 });
 
 // Get stream statistics

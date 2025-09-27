@@ -38,6 +38,10 @@ export default function Home() {
   const [activeStreams, setActiveStreams] = useState<StreamInfo[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [streamKey, setStreamKey] = useState<string>("your_stream_key");
+  const rtmpHost = process.env.NEXT_PUBLIC_RTMP_HOST || "localhost";
+  const rtmpPort = process.env.NEXT_PUBLIC_RTMP_PORT || "1935";
+  const connectionUrl = `rtmp://${rtmpHost}:${rtmpPort}/live/${streamKey}`;
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -238,15 +242,24 @@ export default function Home() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">RTMP URL</label>
                 <code className="block p-2 bg-muted rounded text-sm">
-                  rtmp://localhost:1935/live
+                  {`rtmp://${rtmpHost}:${rtmpPort}/live`}
                 </code>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Stream Key</label>
-                <code className="block p-2 bg-muted rounded text-sm">
-                  your_stream_key
-                </code>
+                <input
+                  value={streamKey}
+                  onChange={(e) => setStreamKey(e.target.value)}
+                  className="w-full px-2 py-1 rounded border bg-background text-sm"
+                  placeholder="your_stream_key"
+                />
               </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Full Connection URL</label>
+              <code className="block p-2 bg-muted rounded text-sm break-all">
+                {connectionUrl}
+              </code>
             </div>
             <p className="text-sm text-muted-foreground">
               Configure your streaming software (OBS, FFmpeg, etc.) with these
