@@ -1,0 +1,16 @@
+{
+  "name": "rtmp-api-server",
+  "version": "1.0.0",
+  "description": "API server for RTMP middleware",
+  "main": "api-server.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "scripts": {
+    "start": "node api-server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
