@@ -135,7 +135,11 @@ function updateNginxConfig() {
 
     const pushDirectives = destinations
       .filter((dest) => dest.enabled)
-      .map((dest) => `            push ${dest.url};`)
+      .map((dest) => {
+        const base = (dest.url || "").replace(/\/+$/, "");
+        const keyPart = dest.key ? `/${dest.key}` : "";
+        return `            push ${base}${keyPart};`;
+      })
       .join("\n");
 
     // Inject between DESTINATIONS_START and DESTINATIONS_END markers

@@ -1,10 +1,17 @@
 # Multi-stage build for Next.js app using Bun
 FROM oven/bun:1-alpine AS builder
 WORKDIR /app
+# Build-time public envs for Next.js
+ARG NEXT_PUBLIC_RTMP_HOST
+ARG NEXT_PUBLIC_RTMP_PORT
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_RTMP_HOST=${NEXT_PUBLIC_RTMP_HOST}
+ENV NEXT_PUBLIC_RTMP_PORT=${NEXT_PUBLIC_RTMP_PORT}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 # Install dependencies
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile || bun install
-# Build app
+# Build app (uses NEXT_PUBLIC_* env)
 COPY . .
 RUN bun run build
 

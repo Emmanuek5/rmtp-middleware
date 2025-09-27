@@ -39,8 +39,8 @@ export default function Home() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [streamKey, setStreamKey] = useState<string>("your_stream_key");
-  const rtmpHost = process.env.NEXT_PUBLIC_RTMP_HOST || "localhost";
-  const rtmpPort = process.env.NEXT_PUBLIC_RTMP_PORT || "1935";
+  const rtmpHost = process.env.NEXT_PUBLIC_RTMP_HOST ?? "localhost";
+  const rtmpPort = process.env.NEXT_PUBLIC_RTMP_PORT ?? "1935";
   const connectionUrl = `rtmp://${rtmpHost}:${rtmpPort}/live/${streamKey}`;
   const { toast } = useToast();
 

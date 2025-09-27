@@ -3,6 +3,8 @@ version: "3.8"
 services:
   rtmp-middleware:
     build: .
+    env_file:
+      - .env
     ports:
       - "${RTMP_HOST_PORT:-1935}:1935" # RTMP ingest (configurable)
       - "3343:3000" # Next.js web app (host 3343 -> container 3000)
