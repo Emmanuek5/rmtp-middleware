@@ -133,16 +133,15 @@ function updateNginxConfig() {
   try {
     let nginxConfig = fs.readFileSync("/etc/nginx/nginx.conf", "utf8");
 
-    // Find the live application block and update push directives
     const pushDirectives = destinations
       .filter((dest) => dest.enabled)
       .map((dest) => `            push ${dest.url};`)
       .join("\n");
 
-    // Replace existing push directives
+    // Inject between DESTINATIONS_START and DESTINATIONS_END markers
     nginxConfig = nginxConfig.replace(
-      /(\s+)push rtmp:\/\/localhost:1935\/hls;[\s\S]*?(?=\n\s+# Enable statistics)/,
-      `$1push rtmp://localhost:1935/hls;\n${pushDirectives}\n`
+      /(\s*# DESTINATIONS_START[\s\S]*# DESTINATIONS_END)/,
+      `            # DESTINATIONS_START\n${pushDirectives}\n            # DESTINATIONS_END`
     );
 
     fs.writeFileSync("/etc/nginx/nginx.conf", nginxConfig);
