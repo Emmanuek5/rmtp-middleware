@@ -34,8 +34,8 @@ cp env.example .env
 docker-compose up -d
 ```
 
-4. Access the web interface at `http://localhost:3000`
-5. Access HLS/DASH and proxy via Nginx at `http://localhost:8081` (configurable via `NGINX_PORT`)
+4. Access the web interface via Nginx at `http://localhost:8081` (configurable via `NGINX_PORT`)
+5. Optional: access Next.js directly at `http://localhost:3343` and API directly at `http://localhost:8343`
 
 ### Development Setup
 
@@ -68,7 +68,7 @@ Configure your streaming software (OBS, FFmpeg, etc.) with:
 
 ### Managing Destinations
 
-1. Open the web interface at `http://localhost:3000`
+1. Open the web interface at `http://localhost:8081`
 2. Navigate to the "Destinations" tab
 3. Add streaming destinations (Twitch, YouTube, etc.)
 4. Toggle destinations on/off as needed
@@ -117,11 +117,11 @@ rtmp://localhost:1935/live/YOUR_STREAM_KEY
 
 ## Ports
 
-- `1935`: RTMP input port
-- `3000`: Web interface
-- `8080`: API server
-- `80`: HTTP (HLS/DASH output and web proxy)
-- `6379`: Redis
+- `1935` (host 1935 -> container 1935): RTMP input port
+- `3343` (host 3343 -> container 3000): Direct Next.js web interface (optional)
+- `8343` (host 8343 -> container 8080): Direct API server (optional)
+- `8081` (host 8081 -> container 80): Nginx HTTP (HLS/DASH and web proxy)
+- `6379` (host 6379 -> container 6379): Redis
 
 ## Configuration
 
@@ -142,9 +142,9 @@ Edit `nginx.conf` to customize RTMP server settings:
 
 ### Web Interface Not Loading
 
-1. Ensure port 3000 is not in use
+1. Ensure port 8081 (Nginx) or 3343 (Next direct) is not in use
 2. Check if all services are running: `docker-compose ps`
-3. Verify API connectivity: `curl http://localhost:8080/api/health`
+3. Verify API connectivity via Nginx: `curl http://localhost:8081/api/health` (or direct: `curl http://localhost:8343/api/health`)
 
 ### Destinations Not Working
 
