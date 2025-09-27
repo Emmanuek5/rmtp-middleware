@@ -4,15 +4,15 @@ FROM node:18-alpine AS base
 # Install dependencies only when needed
 FROM base AS deps
 WORKDIR /app
-COPY package.json bun.lockb* ./
-RUN corepack enable bun && bun install --frozen-lockfile
+COPY package.json package-lock.json* ./
+RUN npm ci || npm install
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN corepack enable bun && bun run build
+RUN npm run build
 
 # Production image with nginx-rtmp and Node.js
 FROM nginx:alpine AS runner
