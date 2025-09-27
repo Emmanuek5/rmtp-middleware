@@ -29,6 +29,8 @@ WORKDIR /app
 # Copy built Next.js app
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# Copy public assets only if present
+RUN mkdir -p /app/public
 COPY --from=builder /app/public ./public
 
 # Copy API server files
