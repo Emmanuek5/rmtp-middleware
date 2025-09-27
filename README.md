@@ -35,6 +35,7 @@ docker-compose up -d
 ```
 
 4. Access the web interface at `http://localhost:3000`
+5. Access HLS/DASH and proxy via Nginx at `http://localhost:8081` (configurable via `NGINX_PORT`)
 
 ### Development Setup
 
@@ -89,11 +90,11 @@ rtmp://localhost:1935/live/YOUR_STREAM_KEY
 ### For Viewers (Output)
 
 ```
-# HLS Playback
-http://localhost/hls/YOUR_STREAM_KEY.m3u8
+# HLS Playback (via Nginx on host)
+http://localhost:8081/hls/YOUR_STREAM_KEY.m3u8
 
-# DASH Playback
-http://localhost/dash/YOUR_STREAM_KEY.mpd
+# DASH Playback (via Nginx on host)
+http://localhost:8081/dash/YOUR_STREAM_KEY.mpd
 
 # Direct RTMP (for restreaming)
 rtmp://localhost:1935/live/YOUR_STREAM_KEY

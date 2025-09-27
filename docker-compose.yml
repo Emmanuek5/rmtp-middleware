@@ -7,7 +7,7 @@ services:
       - "1935:1935" # RTMP port
       - "3000:3000" # Next.js web app
       - "8080:8080" # API server
-      - "80:80" # Nginx HTTP
+      - "${NGINX_PORT:-8081}:80" # Nginx HTTP (configurable; defaults to 8081)
     volumes:
       - ./streams:/tmp/streams
       - ./logs:/var/log/nginx

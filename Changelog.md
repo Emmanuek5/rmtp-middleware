@@ -45,3 +45,7 @@ All notable changes to this project will be documented in this file.
 - Multi-service container with supervisor
 - Persistent configuration storage
 - Automatic service recovery
+
+### Changed
+
+- HTTP port mapping is now configurable via `NGINX_PORT` in `.env` and `docker-compose.yml` uses `${NGINX_PORT:-8081}:80` by default to avoid conflicts when port 80 is in use.
