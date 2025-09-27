@@ -46,8 +46,8 @@ COPY nginx.conf /etc/nginx/nginx.conf
 # Copy supervisor configuration
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Create directories for RTMP
-RUN mkdir -p /var/log/nginx /var/lib/nginx /tmp/hls /tmp/dash
+# Create directories for RTMP and supervisor logs
+RUN mkdir -p /var/log/nginx /var/lib/nginx /tmp/hls /tmp/dash /var/log/supervisor
 
 # Expose ports
 EXPOSE 1935 80 3000 8080

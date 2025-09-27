@@ -49,3 +49,4 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - HTTP port mapping is now configurable via `NGINX_PORT` in `.env` and `docker-compose.yml` uses `${NGINX_PORT:-8081}:80` by default to avoid conflicts when port 80 is in use.
+- Docker image now ensures `/var/log/supervisor` exists to prevent supervisord startup errors.
