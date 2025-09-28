@@ -17,8 +17,13 @@ let destinations = [];
 let activeStreams = [];
 let streamStats = {};
 
+// Persistence settings
+const shouldPersistStreams = process.env.SAVE_STREAMS !== 'false';
+const shouldRecordStreams = process.env.RECORD_STREAMS !== 'false';
+
 // Configuration file paths
 const DESTINATIONS_FILE = "/app/config/destinations.json";
+const STREAMS_FILE = "/app/config/streams.json";
 const NGINX_CONF_TEMPLATE = "/etc/nginx/nginx.conf.template";
 const NGINX_CONF = "/etc/nginx/nginx.conf";
 const NGINX_ACCESS_LOG = "/var/log/nginx/access.log";
@@ -48,6 +53,34 @@ function saveDestinations() {
     fs.writeFileSync(DESTINATIONS_FILE, JSON.stringify(destinations, null, 2));
   } catch (error) {
     console.error("Error saving destinations:", error);
+  }
+}
+
+// Load streams from file
+function loadStreams() {
+  if (!shouldPersistStreams) return;
+  try {
+    if (fs.existsSync(STREAMS_FILE)) {
+      const data = fs.readFileSync(STREAMS_FILE, "utf8");
+      const parsed = JSON.parse(data);
+      activeStreams = parsed.activeStreams || [];
+      streamStats = parsed.streamStats || {};
+    }
+  } catch (error) {
+    console.error("Error loading streams:", error);
+    activeStreams = [];
+    streamStats = {};
+  }
+}
+
+// Save streams to file
+function saveStreams() {
+  if (!shouldPersistStreams) return;
+  try {
+    const toSave = { activeStreams, streamStats };
+    fs.writeFileSync(STREAMS_FILE, JSON.stringify(toSave, null, 2));
+  } catch (error) {
+    console.error("Error saving streams:", error);
   }
 }
 
@@ -102,7 +135,7 @@ function getHlsViewerCounts(windowSeconds = 20) {
     for (const line of lines) {
       // combined log contains: ip - - [date] "GET /hls/<name>..." status bytes ...
       const m = line.match(
-        /^(\S+)\s+\S+\s+\S+\s+\[([^\]]+)\]\s+"\S+\s+(\S+)\s+HTTP\/[0-9.]+"\s+(\d{3})/
+        /^(\S+)\s+\S+\s+\S+\s+\[([^\]]+)\]\s+"\S+\s+(\S+)\s+HTTP\/[0-9.]"\s+(\d{3})/
       );
       if (!m) continue;
       const ip = m[1];
@@ -113,7 +146,7 @@ function getHlsViewerCounts(windowSeconds = 20) {
       const dt = parseNginxTime(timeStr);
       if (!dt) continue;
       if (now - dt.getTime() > windowSeconds * 1000) continue;
-      const hls = path.match(/^\/hls\/(.+?)\.(m3u8|ts)$/);
+      const hls = path.match(/^/hls/(.+?)\.(m3u8|ts)$/);
       if (!hls) continue;
       const streamName = hls[1];
       if (!results[streamName]) results[streamName] = new Set();
@@ -131,12 +164,12 @@ function getHlsViewerCounts(windowSeconds = 20) {
 // Update nginx configuration with current destinations
 function updateNginxConfig() {
   try {
-    let nginxConfig = fs.readFileSync("/etc/nginx/nginx.conf", "utf8");
+    let nginxConfig = fs.readFileSync(NGINX_CONF_TEMPLATE, "utf8");
 
     const pushDirectives = destinations
       .filter((dest) => dest.enabled)
       .map((dest) => {
-        const base = (dest.url || "").replace(/\/+$/, "");
+        const base = (dest.url || "").replace(/\\/+$/, "");
         const keyPart = dest.key ? `/${dest.key}` : "";
         return `            push ${base}${keyPart};`;
       })
@@ -148,7 +181,18 @@ function updateNginxConfig() {
       `            # DESTINATIONS_START\n${pushDirectives}\n            # DESTINATIONS_END`
     );
 
-    fs.writeFileSync("/etc/nginx/nginx.conf", nginxConfig);
+    let recordExec = '';
+    if (shouldRecordStreams) {
+      recordExec = `            exec /usr/bin/ffmpeg -re -i rtmp://localhost/live/$name -c copy -f segment -segment_time 300 -segment_format mp4 -strftime 1 /streams/$name/$name-%Y%m%d_%H%M%S.mp4;`;
+    }
+
+    // Inject between RECORD_START and RECORD_END markers
+    nginxConfig = nginxConfig.replace(
+      /(\s*# RECORD_START[\s\S]*# RECORD_END)/,
+      `            # RECORD_START\n${recordExec}\n            # RECORD_END`
+    );
+
+    fs.writeFileSync(NGINX_CONF, nginxConfig);
 
     // Reload nginx configuration
     exec("nginx -s reload", (error) => {
@@ -165,6 +209,18 @@ function updateNginxConfig() {
 
 // Initialize
 loadDestinations();
+loadStreams();
+
+if (shouldRecordStreams) {
+  activeStreams.forEach(({ name }) => {
+    const streamDir = path.join('/streams', name);
+    if (!fs.existsSync(streamDir)) {
+      fs.mkdirSync(streamDir, { recursive: true });
+    }
+  });
+}
+
+updateNginxConfig();
 
 // API Routes
 
@@ -274,6 +330,15 @@ app.post("/api/rtmp/on_publish", (req, res) => {
     viewers: 0,
   };
 
+  if (shouldRecordStreams) {
+    const streamDir = path.join('/streams', name);
+    if (!fs.existsSync(streamDir)) {
+      fs.mkdirSync(streamDir, { recursive: true });
+    }
+  }
+
+  saveStreams();
+
   res.status(200).send("OK");
 });
 
@@ -283,6 +348,8 @@ app.post("/api/rtmp/on_publish_done", (req, res) => {
 
   activeStreams = activeStreams.filter((stream) => stream.name !== name);
   delete streamStats[name];
+
+  saveStreams();
 
   res.status(200).send("OK");
 });
@@ -295,6 +362,8 @@ app.post("/api/rtmp/on_play", (req, res) => {
     streamStats[name].viewers++;
   }
 
+  saveStreams();
+
   res.status(200).send("OK");
 });
 
@@ -305,6 +374,8 @@ app.post("/api/rtmp/on_play_done", (req, res) => {
   if (streamStats[name]) {
     streamStats[name].viewers = Math.max(0, streamStats[name].viewers - 1);
   }
+
+  saveStreams();
 
   res.status(200).send("OK");
 });
