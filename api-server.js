@@ -18,8 +18,8 @@ let activeStreams = [];
 let streamStats = {};
 
 // Persistence settings
-const shouldPersistStreams = process.env.SAVE_STREAMS !== 'false';
-const shouldRecordStreams = process.env.RECORD_STREAMS !== 'false';
+const shouldPersistStreams = process.env.SAVE_STREAMS !== "false";
+const shouldRecordStreams = process.env.RECORD_STREAMS !== "false";
 
 // Configuration file paths
 const DESTINATIONS_FILE = "/app/config/destinations.json";
@@ -146,7 +146,7 @@ function getHlsViewerCounts(windowSeconds = 20) {
       const dt = parseNginxTime(timeStr);
       if (!dt) continue;
       if (now - dt.getTime() > windowSeconds * 1000) continue;
-      const hls = path.match(/^/hls/(.+?)\.(m3u8|ts)$/);
+      const hls = path.match(/^\/hls\/(.+?)\.(m3u8|ts)$/);
       if (!hls) continue;
       const streamName = hls[1];
       if (!results[streamName]) results[streamName] = new Set();
@@ -169,7 +169,7 @@ function updateNginxConfig() {
     const pushDirectives = destinations
       .filter((dest) => dest.enabled)
       .map((dest) => {
-        const base = (dest.url || "").replace(/\\/+$/, "");
+        const base = (dest.url || "").replace(/\/+$/, "");
         const keyPart = dest.key ? `/${dest.key}` : "";
         return `            push ${base}${keyPart};`;
       })
@@ -181,7 +181,7 @@ function updateNginxConfig() {
       `            # DESTINATIONS_START\n${pushDirectives}\n            # DESTINATIONS_END`
     );
 
-    let recordExec = '';
+    let recordExec = "";
     if (shouldRecordStreams) {
       recordExec = `            exec /usr/bin/ffmpeg -re -i rtmp://localhost/live/$name -c copy -f segment -segment_time 300 -segment_format mp4 -strftime 1 /streams/$name/$name-%Y%m%d_%H%M%S.mp4;`;
     }
@@ -213,7 +213,7 @@ loadStreams();
 
 if (shouldRecordStreams) {
   activeStreams.forEach(({ name }) => {
-    const streamDir = path.join('/streams', name);
+    const streamDir = path.join("/streams", name);
     if (!fs.existsSync(streamDir)) {
       fs.mkdirSync(streamDir, { recursive: true });
     }
@@ -331,7 +331,7 @@ app.post("/api/rtmp/on_publish", (req, res) => {
   };
 
   if (shouldRecordStreams) {
-    const streamDir = path.join('/streams', name);
+    const streamDir = path.join("/streams", name);
     if (!fs.existsSync(streamDir)) {
       fs.mkdirSync(streamDir, { recursive: true });
     }
