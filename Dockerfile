@@ -1,6 +1,7 @@
 # Multi-stage build for Next.js app using Bun
 FROM oven/bun:1-alpine AS builder
 WORKDIR /app
+
 # Build-time public envs for Next.js
 ARG NEXT_PUBLIC_RTMP_HOST
 ARG NEXT_PUBLIC_RTMP_PORT
@@ -8,42 +9,45 @@ ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_RTMP_HOST=${NEXT_PUBLIC_RTMP_HOST}
 ENV NEXT_PUBLIC_RTMP_PORT=${NEXT_PUBLIC_RTMP_PORT}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 # Install dependencies
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile || bun install
+
 # Build app (uses NEXT_PUBLIC_* env)
 COPY . .
 RUN bun run build
 
-# Production image with nginx-rtmp and Bun (Alpine packages to match module versions)
+# Production image with nginx-rtmp, Bun, Node.js + npm
 FROM alpine:3.20 AS runner
 
-# Install nginx with RTMP module, supervisor, ffmpeg; add Bun
-RUN apk add --no-cache nginx nginx-mod-rtmp supervisor ffmpeg \
+# Install nginx with RTMP module, supervisor, ffmpeg, curl
+RUN apk add --no-cache nginx nginx-mod-rtmp supervisor ffmpeg curl \
   && mkdir -p /run/nginx
+
+# Install Node.js + npm (LTS) on Alpine
+RUN apk add --no-cache nodejs npm
 
 # Copy Bun binary from builder stage
 COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
 
-# Copy nginx-rtmp module
-RUN apk add --no-cache nginx-mod-rtmp
-
 # Create app directory
 WORKDIR /app
 
-# Copy built Next.js app into a dedicated directory to avoid dependency conflicts
+# Copy built Next.js app into a dedicated directory
 RUN mkdir -p /app/next
 COPY --from=builder /app/.next/standalone /app/next
 COPY --from=builder /app/.next/static /app/next/.next/static
-# Copy public assets only if present
+
+# Copy public assets if present
 RUN mkdir -p /app/next/public
 COPY --from=builder /app/public /app/next/public
 
 # Copy API server files
-COPY api-server.js ./
+COPY api-server.js ./ 
 COPY package-api.json ./package.json
 
-# Install API server dependencies with Bun
+# Install API server dependencies with Bun (can also use npm if needed)
 RUN bun install --production
 
 # Copy nginx configuration
