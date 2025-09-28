@@ -188,8 +188,8 @@ function updateNginxConfig() {
 
     // Inject between RECORD_START and RECORD_END markers
     nginxConfig = nginxConfig.replace(
-      /(\s*# RECORD_START[\s\S]*# RECORD_END)/,
-      `            # RECORD_START\n${recordExec}\n            # RECORD_END`
+      /(\s*# RECORDING_START[\s\S]*# RECORDING_END)/,
+      `            # RECORDING_START\n${recordExec}\n            # RECORDING_END`
     );
 
     fs.writeFileSync(NGINX_CONF, nginxConfig);
