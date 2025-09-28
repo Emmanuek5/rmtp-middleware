@@ -24,7 +24,7 @@ const shouldRecordStreams = process.env.RECORD_STREAMS !== "false";
 // Configuration file paths
 const DESTINATIONS_FILE = "/app/config/destinations.json";
 const STREAMS_FILE = "/app/config/streams.json";
-const NGINX_CONF_TEMPLATE = "/etc/nginx/nginx.conf.template";
+const NGINX_CONF_TEMPLATE = "/etc/nginx/nginx.conf";
 const NGINX_CONF = "/etc/nginx/nginx.conf";
 const NGINX_ACCESS_LOG = "/var/log/nginx/access.log";
 
