@@ -1,5 +1,6 @@
 const express = require("express");
 const fs = require("fs");
+const http = require("http");
 const path = require("path");
 const { exec } = require("child_process");
 const cors = require("cors");
@@ -183,7 +184,7 @@ function updateNginxConfig() {
 
     let recordExec = "";
     if (shouldRecordStreams) {
-      recordExec = `            exec /usr/bin/ffmpeg -re -i rtmp://localhost/live/$name -c copy -f segment -segment_time 300 -segment_format mp4 -strftime 1 /streams/$name/$name-%Y%m%d_%H%M%S.mp4;`;
+      recordExec = `            exec /usr/bin/ffmpeg -i rtmp://localhost/live/$name -c copy -f segment -segment_time 300 -segment_format mp4 -strftime 1 /streams/$name/$name-%Y%m%d_%H%M%S.mp4;`;
     }
 
     // Inject between RECORD_START and RECORD_END markers
@@ -205,6 +206,50 @@ function updateNginxConfig() {
   } catch (error) {
     console.error("Error updating nginx config:", error);
   }
+}
+
+// Poll nginx RTMP /stat XML endpoint to get real bytes_in/bytes_out/bandwidth per stream
+function pollNginxStats() {
+  const req = http.get("http://127.0.0.1/stat", (res) => {
+    let data = "";
+    res.on("data", (chunk) => {
+      data += chunk;
+    });
+    res.on("end", () => {
+      try {
+        // Extract each <stream>...</stream> block and parse fields from it
+        const streamBlockRegex = /<stream>([\s\S]*?)<\/stream>/g;
+        let block;
+        while ((block = streamBlockRegex.exec(data)) !== null) {
+          const content = block[1];
+          const nameMatch = content.match(/<name>([^<]+)<\/name>/);
+          if (!nameMatch) continue;
+          const name = nameMatch[1];
+          if (!streamStats[name]) continue;
+
+          const bytesInMatch = content.match(/<bytes_in>(\d+)<\/bytes_in>/);
+          const bytesOutMatch = content.match(/<bytes_out>(\d+)<\/bytes_out>/);
+          const bwInMatch = content.match(/<bw_in>(\d+)<\/bw_in>/);
+          const bwOutMatch = content.match(/<bw_out>(\d+)<\/bw_out>/);
+
+          if (bytesInMatch) streamStats[name].bytesIn = parseInt(bytesInMatch[1], 10);
+          if (bytesOutMatch) streamStats[name].bytesOut = parseInt(bytesOutMatch[1], 10);
+          // bw_in/bw_out are in bits/sec from nginx-rtmp
+          if (bwInMatch) streamStats[name].bwIn = parseInt(bwInMatch[1], 10);
+          if (bwOutMatch) streamStats[name].bwOut = parseInt(bwOutMatch[1], 10);
+        }
+      } catch (err) {
+        console.error("Error parsing nginx stats XML:", err);
+      }
+    });
+  });
+  req.on("error", (err) => {
+    // ECONNREFUSED is expected when nginx isn't ready yet; ignore silently
+    if (err.code !== "ECONNREFUSED") {
+      console.error("Error fetching nginx stats:", err.message);
+    }
+  });
+  req.setTimeout(3000, () => req.destroy());
 }
 
 // Initialize
@@ -327,6 +372,8 @@ app.post("/api/rtmp/on_publish", (req, res) => {
     startTime: stream.startTime,
     bytesIn: 0,
     bytesOut: 0,
+    bwIn: 0,
+    bwOut: 0,
     viewers: 0,
   };
 
@@ -393,6 +440,9 @@ app.get("/api/health", (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`API server running on port ${PORT}`);
+  // Start polling nginx RTMP stats for real byte/bandwidth data
+  setInterval(pollNginxStats, 5000);
+  pollNginxStats(); // immediate first poll
 });
 
 module.exports = app;

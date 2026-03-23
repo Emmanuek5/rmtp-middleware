@@ -19,6 +19,8 @@ interface StreamStats {
     startTime: string;
     bytesIn: number;
     bytesOut: number;
+    bwIn?: number;
+    bwOut?: number;
     viewers: number;
   };
 }
@@ -53,6 +55,13 @@ export function StreamStats() {
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const formatBitrate = (bitsPerSec: number) => {
+    if (bitsPerSec === 0) return "0 bps";
+    if (bitsPerSec >= 1_000_000) return (bitsPerSec / 1_000_000).toFixed(2) + " Mbps";
+    if (bitsPerSec >= 1_000) return (bitsPerSec / 1_000).toFixed(1) + " Kbps";
+    return bitsPerSec + " bps";
+  };
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 B";
@@ -198,6 +207,11 @@ export function StreamStats() {
                         <p className="text-lg font-bold">
                           {formatBytes(stat.bytesIn)}
                         </p>
+                        {stat.bwIn !== undefined && stat.bwIn > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatBitrate(stat.bwIn)}
+                          </p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -208,6 +222,11 @@ export function StreamStats() {
                         <p className="text-lg font-bold">
                           {formatBytes(stat.bytesOut)}
                         </p>
+                        {stat.bwOut !== undefined && stat.bwOut > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatBitrate(stat.bwOut)}
+                          </p>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -219,17 +238,25 @@ export function StreamStats() {
                       </div>
                     </div>
 
-                    {/* Stream Quality Indicators */}
-                    <div className="mt-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Stream Health</span>
-                        <Badge variant="default">Good</Badge>
+                    {/* Ingest bitrate progress bar — only shown when nginx stats are available */}
+                    {stat.bwIn !== undefined && stat.bwIn > 0 && (
+                      <div className="mt-4 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Ingest Bitrate</span>
+                          <span className="text-muted-foreground">
+                            {formatBitrate(stat.bwIn)} in / {formatBitrate(stat.bwOut ?? 0)} out
+                          </span>
+                        </div>
+                        {/* Scale bar relative to 10 Mbps as a reasonable ceiling */}
+                        <Progress
+                          value={Math.min((stat.bwIn / 10_000_000) * 100, 100)}
+                          className="h-2"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Live bandwidth from nginx — updates every 5s
+                        </p>
                       </div>
-                      <Progress value={85} className="h-2" />
-                      <p className="text-xs text-muted-foreground">
-                        Based on data flow and connection stability
-                      </p>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               );
